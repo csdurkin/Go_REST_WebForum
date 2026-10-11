@@ -1,3 +1,38 @@
+"""
+APP.PY: Defines API (Three parts: endpoints, data shape, behaivour)
+DIFFERENCES:    1. Endpoints - which URLS and functions exist, python: @app.route, go: mux.HandleFunc()
+                2. Data shape - what json looks like, python: implicit in dict, go: structs with json tags
+                3. Behaivour - what happens on each call, python - the function body, go: handle function body
+"""
+#TODO: gofmt: how do we import and use? 
+
+
+
+"""
+GO PORT: STRUCT MAP
+Where each Go struct comes from in this file.
+
+Stored data
+  User               line 166   user_data = {...}
+  Post               line 50    post_data = {...}
+  Store              lines 8-10 posts, users, lock
+
+Request bodies (look for data.get / data[...])
+  CreateUserRequest  lines 146-147
+  EditUserRequest    lines 207-209
+  CreatePostRequest  lines 20-23
+
+Responses
+  Reply / PostResponse  lines 79-81  (replies list)
+  Error                 every jsonify({'err': ...})
+
+Not structs (URL query params, read with request.args)
+  delete, search by datetime, search by user
+"""
+
+
+
+
 from flask import Flask, request, jsonify
 from secrets import token_urlsafe
 from datetime import datetime, timezone
@@ -5,9 +40,46 @@ import threading
 
 app = Flask(__name__)
 
+
 posts = {}                                                  #Dictonary to store posts and associated data
 users = {}                                                  #Dictionary to store users and associated data
 lock = threading.Lock()                                     #Creates a lock object; synchronizes access to resources
+
+"""
+GO IMPLEMENTATION
+
+NOTES: 
+    - Struct tags: backticks (not apostrophes!) map Go field names to JSON keys. Keep API's JSON identical to python version.
+    - Stucture: {name type tag}. White space between these is flexible. Don't do this by hand though - use go fmt. 
+"""
+
+#*STORED DATA*
+
+#RELATED PYTHON: store_post, post_data = {'id': post_id, 'key': key, 'timestamp': timestamp, 'msg': msg, 'user_id': user_id, 'post_parentid': post_parentid}
+type Post struct {
+    ID              int         `json:"id"`
+    Key             string      `json:"key"`
+    Timestamp       time.Time   `json:"timestamp"`
+    Msg             string      `json:"msg"`
+    UserID          int         `json:"user_id"`
+    ParentID        *int        `json:"post_parentid"`
+}
+
+
+# RELATED PYTHON: user_data = {'id': user_id, 'key': user_key, 'user_screenname': user_screenname, 'user_realname': user_realname}    
+type User struct {
+    ID              int         `json:"id"`                                     #Important: Backticks, not appostrophes. Using these matches the API's JSON (and previous python implmentation) 
+    Key             string      `json:"key"`
+    ScreenName      string      `json:"user_screenname"`
+    RealName        string      `json:"user_realname"`
+}
+
+
+#*REQUEST BODY*
+
+#*RESPONSES*
+
+
 
 # ENDPOINT 1: POST
 # EXTENSIONS INCLUDED: (1: USERS) user_id and user_key to show authors (3: REPLIES) post_parentid allows for threaded replies
