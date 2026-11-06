@@ -94,6 +94,31 @@ def store_post():
         user_key = data.get('user_key')                     #Pull user_key from request data
         post_parentid = data.get('post_parentid')           #Specify what post is being replied to
 
+
+    type CreatePostRequest struct {
+        Msg string "json:msg"
+        User_id int "json:user_id"
+        User_key int "json:user_key"
+        post_parentid *int "json:post_parentid"             # * | here, if value not provided, post_parentid becomes nil, not zero
+    }
+    
+    type CreateUserRequest struct {
+        user_screenname string "json:user_screenname"
+        user_realname string "json:user_realname"
+    }
+    
+      data = request.get_json()
+            user_id = len(users) + 1  # Simple incrementing integer ID
+            user_key = token_urlsafe(20)
+            user_screenname = data.get('user_screenname')
+            user_realname = data.get('user_realname')
+
+
+
+type UserRequest struct {
+Msg string "json:msg"
+}
+
         if not user_id or not user_key:
             return jsonify({'err': 'User ID and user key are required.'}), 400
 
