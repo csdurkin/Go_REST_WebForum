@@ -15,6 +15,8 @@ package main
 // 1 IMPORTS -----------------------------------------------------------------------------
 
 	import (	
+		"log"		// startup and error messages
+		"net/http"	// server, routes, ResponseWriter, REquest
 		"sync"		// Python Equivalent: threading
 		"time"		// Python Equivalent: datetime, timezone
 	)
@@ -100,6 +102,24 @@ var store = &Store{							// &: ampersand means "the address of"; this creates a
 	// TODO: CREATE A HELPER VERSION OF JSONIFY, AS NOT AVAILABLE IN GO
 
 // 5 HANDLERS (ONE PER ENDPOINT) ------------------------------------------------
+
+/*
+NOTES: HANDLER SYNTAX
+
+	- func: declares function, python equivalent: def
+	- functionName: use camelCase
+	- w http.ResponderWriter: 
+		- ResponderWriter: built into Go's net/http packacke. Connaction back to client. Whatever writen to w is sent as response. 
+		- w: where the response is written. Name first, type second.
+		- This replaces Python's jsonify(...)
+	- r *http.Request: 
+		- http.Request: built into Go's net/http package. Holds everythign fclient sent, passed to handler as r.
+		- r: the cincoming request (body, url, query params)
+		- *: pointer to the request body, not a copy
+		- This replaces Python's request object
+
+
+*/
 
 // POST /post
 // Python: store_post

@@ -1,4 +1,16 @@
 """
+ARCHIVED SANDBOX: NOT RUNNABLE
+
+This file is a working scratchpad from porting this project to Go.
+It mixes the original Python with learning notes and early Go drafts,
+some of them incorrect. It is kept for reference only.
+
+- Do not run: the inline Go code causes Python syntax errors.
+- Original Python: see this repository's commit history.
+- Working Go version: main.go
+"""
+
+"""
 APP.PY: Defines API (Three parts: endpoints, data shape, behaivour)
 DIFFERENCES:    1. Endpoints - which URLS and functions exist, python: @app.route, go: mux.HandleFunc()
                 2. Data shape - what json looks like, python: implicit in dict, go: structs with json tags

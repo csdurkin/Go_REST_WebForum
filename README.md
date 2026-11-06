@@ -18,7 +18,7 @@ The original version was built in December 2023 as a project for a Python fundam
 
 | Version | State |
 |---|---|
-| Python / Flask | Complete (original coursework, unchanged) |
+| Python / Flask | Archived. `app.py` is now a notes sandbox; the original runnable version is in the commit history |
 | Go | In progress |
 
 ---
@@ -53,9 +53,10 @@ The forum supports user accounts, posts, threaded replies and search. Data is he
 
 ```
 .
-├── app.py                              # Flask application and API endpoints
-├── run.sh                              # Starts the Flask development server
-├── setup.sh                            # Installs dependencies
+├── main.go                             # Go server: structs, handlers, routes
+├── go.mod                              # Go module definition
+├── app.py                              # Archived Flask version with porting notes (not runnable)
+├── run.sh                              # Starts the Go server
 ├── test.sh                             # Runs Newman API tests
 ├── cdurkin_cs515_project3_collection.postman_collection.json
 ├── cdurkin_project3_enviroment.postman_environment.json
@@ -63,20 +64,21 @@ The forum supports user accounts, posts, threaded replies and search. Data is he
 └── README.md
 ```
 
-The Go implementation will be added alongside the Python files as it develops.
-
 ---
 
 ## Running the Python version
 
-Requires Python 3 and Flask. Tests require [Newman](https://github.com/postmanlabs/newman).
+app.py is no longer runnable. Check out the original commit to run the Flask version.
+
+---
+
+## Running the Go version
+
+Requires [Go](https://go.dev/dl/) 1.22 or later. No other dependencies: the server uses only Go's standard library.
 
 ```bash
-./setup.sh   # install dependencies
-./run.sh     # start the Flask server on http://127.0.0.1:5000
-./test.sh    # run the Postman collection via Newman
+./run.sh     # start the Go server on http://127.0.0.1:5000
 ```
-
 ---
 
 ## Known issues in the original
