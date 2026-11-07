@@ -111,7 +111,7 @@ var store = &Store{							// &: ampersand means "the address of"; this creates a
 	
 	//FUNCTION: writeError: sends {"err": message} with given status code; Python equivalent: return jsonify({'err}: message), statusCode
 	func writeError(writer http.ResponseWriter, statusCode int, message string) {
-		writeJSON(writer, statusCode, ErrorResponse{Err: message})						//rrorResponse: Struct defined above, defines shape of every error API sends
+		writeJSON(writer, statusCode, ErrorResponse{Err: message})						//ErrorResponse: Struct defined above, defines shape of every error API sends
 	}
 
 	//FUNCTION: newKey: returns a random URL-safe key; python equivalent: token_urlsafe(20)
@@ -148,11 +148,60 @@ NOTES: HANDLER SYNTAX
 
 // POST /post
 // Python: store_post
-func storePost(writer http.ResponseWriter, request *http.Request) {}
+
+func storePost(writer http.ResponseWriter, request *http.Request) {
+
+	// 1 Read JSON
+	var postRequest CreatePostRequest 								// order: variable declaration, var. name, type (here, struct type CreatePostRequest)
+	err := json.NewDecoder(request.Body).Decode(&postRequest)			// Reverse of encoder, notes in helper:writeJSON. Read the JSON bdy and store at the pointer of requestBody
+
+	// 2 Error Handling
+	
+	if err != nil || postRequest.Msg == "" || postRequest.UserID == 0 || postRequest.UserKey == "" {
+			writeError(writer, http.StatusBadRequest, "Bad Request")
+			return
+		}
+
+	// 3 Generate Secret Key
+	postKey, err := newKey()
+	if err != nil {
+		writeError(writer, http.StatusInternalServerError, "Error processing request (key generation).")
+		return
+	}
+
+	// 5 Lock before touching shared data 
+	store.mu.Lock()													// Go (sync.Mutex): blocks other requests from the shared data until unlocked; Python: with lock:
+	defer store.mu.Unlock()											// Go keyword: runs Unlock when the function exits, however it exits; Python: the end of the with block
+
+	// 6 Check user exists, key matches 
+	user, found := store.users[postRequest.UserID]
+	if !found || user.Key != postRequest.UserKey {
+		writeError(writer, http.StatusNotFound, "User not found.")
+		return
+	}
+
+	// 7 Assign next ID to post and store post 
+	store.nextPostID++												// Set in store struct
+	post := &Post{
+		ID:			store.nextPostID, 
+		Key: 		postKey,
+		Timestamp: 	time.Now().UTC(),
+		Msg:		postRequest.Msg, 
+		UserID:		postRequest.UserID, 
+		ParentID: 	postRequest.ParentID,
+	}
+	store.posts[post.ID] = post										//Reminder: key is post's ID, value is its pointer
+
+	writeJSON(writer, http.StatusOK, post)
+
+}
+
 
 // GET /post/{id}
 // Python: get_post
-func getPost(writer http.ResponseWriter, request *http.Request) {}
+func getPost(writer http.ResponseWriter, request *http.Request) {
+	
+}
 
 // DELETE /post/{id}/delete/{key}
 // Python: detele_post
@@ -160,7 +209,30 @@ func deletePost(writer http.ResponseWriter, request *http.Request) {}
 
 // POST /user
 // Python: create_user
-func createUser(writer http.ResponseWriter, request *http.Request) {}
+func createUser(writer http.ResponseWriter, request *http.Request) {
+	
+	// 1 Read input: decode JSON body into userRequest
+	var userRequest CreateUserRequest
+	err := json.NewDecoder(request.Body).Decode(&userRequest)
+
+	// 2 Error handling: reject bad JSON or missing screen name (400)
+	if err != nil || userRequest.ScreenName == "" {
+		writeError(writer, http.StatusBadRequest, "Bad Request")
+		return
+	}
+
+	// 3 Generate secret key
+	userKey, err := newKey()
+	if err != nil {
+		writeError(writer, http.StatusInternalServerError, "Error processing request (key generation).")
+		return
+	}
+
+	// 4 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	
+}
 
 // GET /user/{identifier}
 // Python: get_user_metadata
@@ -206,3 +278,10 @@ func main() {
 	log.Println("Listening on http://127.0.0.1:5000")
 	log.Fatal(http.ListenAndServe("127.0.0.1:5000", mux))
 }
+
+
+/* GO NOTES: 
+- Make sure to use ":=" not just ":" or ever "==": this intiates and sets the variable
+- Watch CAPS: capitalization matters in GO 
+- Pointers are more declared in GO than Python. Learn more about this part of syntax.
+*/
