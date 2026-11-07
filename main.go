@@ -22,6 +22,7 @@ package main
 		"crypto/rand"     	// secure random bytes for keys; Python Equivalent: secrets
 		"encoding/base64" 	// turns key bytes into URL-safe text; Python Equivalent: secrets.token_urlsafe
 		"encoding/json"   	// read and write JSON; Python Equivalent: request.get_json, jsonify
+		"strconv"			// convert text to numbers, e.g. "3" → 3; Python Equivalent: int()
 	)
 
 // 2 STRUCTS -----------------------------------------------------------------------------
@@ -151,8 +152,8 @@ NOTES: HANDLER SYNTAX
 
 func storePost(writer http.ResponseWriter, request *http.Request) {
 
-	// 1 Read JSON
-	var postRequest CreatePostRequest 								// order: variable declaration, var. name, type (here, struct type CreatePostRequest)
+	// 1 Read JSON input
+	var postRequest CreatePostRequest 									// order: variable declaration, var. name, type (here, struct type CreatePostRequest)
 	err := json.NewDecoder(request.Body).Decode(&postRequest)			// Reverse of encoder, notes in helper:writeJSON. Read the JSON bdy and store at the pointer of requestBody
 
 	// 2 Error Handling
@@ -169,18 +170,18 @@ func storePost(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	// 5 Lock before touching shared data 
+	// 4 Lock before touching shared data 
 	store.mu.Lock()													// Go (sync.Mutex): blocks other requests from the shared data until unlocked; Python: with lock:
 	defer store.mu.Unlock()											// Go keyword: runs Unlock when the function exits, however it exits; Python: the end of the with block
 
-	// 6 Check user exists, key matches 
+	// 5 Check user exists, key matches 
 	user, found := store.users[postRequest.UserID]
 	if !found || user.Key != postRequest.UserKey {
 		writeError(writer, http.StatusNotFound, "User not found.")
 		return
 	}
 
-	// 7 Assign next ID to post and store post 
+	// 6 Assign next ID to post and store post 
 	store.nextPostID++												// Set in store struct
 	post := &Post{
 		ID:			store.nextPostID, 
@@ -200,11 +201,24 @@ func storePost(writer http.ResponseWriter, request *http.Request) {
 // GET /post/{id}
 // Python: get_post
 func getPost(writer http.ResponseWriter, request *http.Request) {
+
+	// 1 Read input: post ID from URL path
+	postID, err := strconv.Atoi(request.PathValue("id"))			// strconv - string converation; Atoi - ASCII to integer
 	
+	// 2 Error handling: reject a post ID that isn't a number (400)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, "Bad Request")
+		return
+	}
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
 }
 
 // DELETE /post/{id}/delete/{key}
-// Python: detele_post
+// Python: delete_post
 func deletePost(writer http.ResponseWriter, request *http.Request) {}
 
 // POST /user
@@ -231,30 +245,82 @@ func createUser(writer http.ResponseWriter, request *http.Request) {
 	// 4 Lock before touching shared data (Python: with lock:)
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	
+
 }
 
 // GET /user/{identifier}
 // Python: get_user_metadata
-func getUserMetadata(writer http.ResponseWriter, request *http.Request) {}
+func getUserMetadata(writer http.ResponseWriter, request *http.Request) {
+	
+	// 1 Read input: user ID or screen name from URL path
+	identifier := request.PathValue("identifier")
+
+	// 2 Error handling: none needed (any text is a valid identifier; not found is checked in step 5)
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+}
 
 // PUT /user/{identifier}/edit
 // Python: edit_user_metadata
 func editUserMetadata(writer http.ResponseWriter, request *http.Request) {}
 
-// GET /user
+// GET /users
 // Python: get_all_users
-func getAllUsers(writer http.ResponseWriter, request *http.Request) {}
+func getAllUsers(writer http.ResponseWriter, request *http.Request) {
+
+	// 1 Read input: not needed
+	// 2 Error handling: none needed
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+}
 
 // GET /posts/search/datetime
 // Python: search_datetime
-func searchDatetime(writer http.ResponseWriter, request *http.Request) {}
+func searchDatetime(writer http.ResponseWriter, request *http.Request) {
 
-// GET /posts/search/user
+	// 1 Read input: start and end times from query string. Notes on why query and not pathvalue in search_user
+	startText := request.URL.Query().Get("start_datetime")
+	endText := request.URL.Query().Get("end_datetime")
+
+	// 2 Error handling: parse times; reject any provided time that isn't ISO 8601 (400)
+	// time.Parse (text → time.Time) using RFC3339 (ISO 8601 layout, e.g. 2023-01-01T00:00:00Z); returns (time.Time, error), error if text doesn't match
+	startTime, startErr := time.Parse(time.RFC3339, startText)
+	endTime, endErr := time.Parse(time.RFC3339, endText)
+	if (startText != "" && startErr != nil) || (endText != "" && endErr != nil) {
+		writeError(writer, http.StatusBadRequest, "Invalid date/time format.")
+		return
+	}
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+}
+
+// GET /posts/search/user (expample: /posts/search/user?user_id=1)
 // Python: search_user
-func searchUser(writer http.ResponseWriter, request *http.Request) {}
+func searchUserPosts(writer http.ResponseWriter, request *http.Request) {
 
-// 6 MAIN
+	// 1 UserId
+	userId, err := strconv.Atoi(request.URL.Query().Get("user_id"))	//Why not pathValue? The user_id is placed in a querystring, while the post_id was directly in the url path
+		
+	// 2 Error handling: reject a missing or non-numeric user ID (400)
+	if err != nil {
+		writeError(writer, http.StatusBadRequest, "Invalid user_id format.")
+		return
+	}
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+}
 
 // 6 MAIN: ROUTES AND SERVER START ----------------------------------------------
 
@@ -270,9 +336,9 @@ func main() {
 	mux.HandleFunc("POST /user", createUser)
 	mux.HandleFunc("GET /user/{identifier}", getUserMetadata)
 	mux.HandleFunc("PUT /user/{identifier}/edit", editUserMetadata)
-	mux.HandleFunc("GET /user", getAllUsers)
+	mux.HandleFunc("GET /users", getAllUsers)
 	mux.HandleFunc("GET /posts/search/datetime", searchDatetime)
-	mux.HandleFunc("GET /posts/search/user", searchUser)
+	mux.HandleFunc("GET /posts/search/user", searchUserPosts)
 
 	// 3. Start the server (Python: app.run())
 	log.Println("Listening on http://127.0.0.1:5000")
@@ -284,4 +350,5 @@ func main() {
 - Make sure to use ":=" not just ":" or ever "==": this intiates and sets the variable
 - Watch CAPS: capitalization matters in GO 
 - Pointers are more declared in GO than Python. Learn more about this part of syntax.
+- strconv.Atoi: version of int(); more written out conversions in GO 
 */
