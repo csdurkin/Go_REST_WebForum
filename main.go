@@ -219,7 +219,25 @@ func getPost(writer http.ResponseWriter, request *http.Request) {
 
 // DELETE /post/{id}/delete/{key}
 // Python: delete_post
-func deletePost(writer http.ResponseWriter, request *http.Request) {}
+func deletePost(writer http.ResponseWriter, request *http.Request) {
+		
+	// 1 Read input: post ID and post key from URL path; user ID and user key from query string
+	postID, postErr := strconv.Atoi(request.PathValue("id"))
+	postKey := request.PathValue("key")
+	userID, userErr := strconv.Atoi(request.URL.Query().Get("user_id"))
+	userKey := request.URL.Query().Get("user_key")
+
+	// 2 Error handling: reject non-numeric IDs or missing keys (400)
+	if postErr != nil || userErr != nil || postKey == "" || userKey == "" {
+		writeError(writer, http.StatusBadRequest, "Bad Request")
+		return
+	}
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+}
 
 // POST /user
 // Python: create_user
@@ -265,7 +283,24 @@ func getUserMetadata(writer http.ResponseWriter, request *http.Request) {
 
 // PUT /user/{identifier}/edit
 // Python: edit_user_metadata
-func editUserMetadata(writer http.ResponseWriter, request *http.Request) {}
+func editUserMetadata(writer http.ResponseWriter, request *http.Request) {
+	
+	// 1 Read input: user ID or screen name from URL path; decode JSON body into editRequest
+	identifier := request.PathValue("identifier")
+	var editRequest EditUserRequest
+	err := json.NewDecoder(request.Body).Decode(&editRequest)
+
+	// 2 Error handling: reject bad JSON or missing user key (400)
+	if err != nil || editRequest.UserKey == "" {
+		writeError(writer, http.StatusBadRequest, "Bad Request")
+		return
+	}
+
+	// 3 Lock before touching shared data (Python: with lock:)
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+}
 
 // GET /users
 // Python: get_all_users
