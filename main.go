@@ -223,13 +223,6 @@ func getPost(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	// Check: Write error if no post found; Write error if keys do not match
-
-	if matchedPost == nil {
-		writeError(writer, http.StatusNotFound, "Post not found.")
-		return
-	}
-
 	// 5 Act: collect replies (posts whose parent is this post)
 	replies := []Reply{}																//[]Reply: list (slice) of Reply structs; {}: start it empty (JSON shows [] not null)
 	for _, existingPost := range store.posts {											// *: "value at the pointer", turns ParentID (*int) into its int; check != nil first, as reading a nil pointer crashes
@@ -270,7 +263,34 @@ func deletePost(writer http.ResponseWriter, request *http.Request) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+		// 4 Check: post exists (404)
+	matchedPost, postFound := store.posts[postID]
+	if !postFound {
+		writeError(writer, http.StatusNotFound, "Post not found.")
+		return
+	}
+
+	// 5 Check: user exists and user key matches (403)
+	matchedUser, userFound := store.users[userID]
+	if !userFound || matchedUser.Key != userKey {
+		writeError(writer, http.StatusForbidden, "Invalid user credentials.")
+		return
+	}
+
+	// 6 Check: post key matches (403)
+	if matchedPost.Key != postKey {
+		writeError(writer, http.StatusForbidden, "Forbidden.")
+		return
+	}
+
+	// 7 Act: delete post from store
+	delete(store.posts, postID)
+
+	// 8 Respond with deleted post (200)
+	writeJSON(writer, http.StatusOK, matchedPost)
+
 }
+
 
 // POST /user
 // Python: create_user
@@ -342,16 +362,11 @@ func getUserMetadata(writer http.ResponseWriter, request *http.Request) {
 			break
 		}
 	}
-w
+
 	// Check: Write error if no user found; Write error if keys do not match
 
 	if matchedUser == nil {
-		writerError(writer, http.StatusNotFound, "User not found.")
-		return
-	}
-
-	if matchedUser.Key != editRequest.UserKey {
-		writeError(writer, http.StatusForbidden, "Forbidden.")
+		writeError(writer, http.StatusNotFound, "User not found.")
 		return
 	}
 
@@ -425,7 +440,16 @@ func getAllUsers(writer http.ResponseWriter, request *http.Request) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	// 4 Act: collect every user into a list
+	allUsers := []*User{}
+	for _, existingUser := range store.users {
+		allUsers = append(allUsers, existingUser)
+	}
+
+	// 5 Respond with all users (200)
+	writeJSON(writer, http.StatusOK, allUsers)
 }
+
 
 // GET /posts/search/datetime
 // Python: search_datetime
@@ -467,6 +491,25 @@ func searchUserPosts(writer http.ResponseWriter, request *http.Request) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	// 4 Check: user exists (404)
+	_, found := store.users[userId]
+	if !found {
+		writeError(writer, http.StatusNotFound, "User not found.")
+		return
+	}
+
+	// 5 Act: collect every post by this user
+	userPosts := []*Post{}
+	for _, existingPost := range store.posts {
+		if existingPost.UserID == userId {
+			userPosts = append(userPosts, existingPost)
+		}
+	}
+
+	// 6 Respond with the user's posts (200)
+	writeJSON(writer, http.StatusOK, userPosts)
+}
+
 }
 
 // 6 MAIN: ROUTES AND SERVER START ----------------------------------------------
@@ -498,4 +541,6 @@ func main() {
 - Watch CAPS: capitalization matters in GO 
 - Pointers are more declared in GO than Python. Learn more about this part of syntax.
 - strconv.Atoi: version of int(); more written out conversions in GO 
+- Replies whena deleting post from store: Replies are left as they are (matches Python): their post_parentid points to a missing post, which is harmless; GET on the parent returns 404
+
 */
