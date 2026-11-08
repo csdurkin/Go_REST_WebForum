@@ -263,6 +263,28 @@ func createUser(writer http.ResponseWriter, request *http.Request) {
 	// 4 Lock before touching shared data (Python: with lock:)
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	
+	// 5 Check: ensure no user or key match
+	for _, existingUser := range store.users {															// Range: makes it loop; In check for create post, we could probe by UserID provided by client as only one check needed; in create user, we need to loop over all users
+		if existingUser.ScreenName == userRequest.ScreenName {
+			writeError(writer, http.StatusBadRequest, "Provided screenname is not unique")
+			return
+		}
+	}
+
+	// 6 Assign next ID to user and store user 
+	store.nextUserID++												// Set in store struct
+	
+	user := &User{
+		ID:			store.nextUserID, 
+		Key: 		userKey,
+		ScreenName:	userRequest.ScreenName,
+		RealName: 	userRequest.RealName,
+	}
+
+	store.users[user.ID] = user										//Reminder: key is user's ID, value is its pointer
+
+	writeJSON(writer, http.StatusOK, user)
 
 }
 
