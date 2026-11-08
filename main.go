@@ -215,6 +215,39 @@ func getPost(writer http.ResponseWriter, request *http.Request) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+
+	//4 Act: identifier 
+	matchedPost, found := store.posts[postID]						// No var needed (unlike a loop search): one-line lookup gives the result immediately; a loop needs var declared first so the result survives after the loop ends
+	if !found {
+		writeError(writer, http.StatusNotFound, "Post not found.")
+		return
+	}
+
+	// Check: Write error if no post found; Write error if keys do not match
+
+	if matchedPost == nil {
+		writeError(writer, http.StatusNotFound, "Post not found.")
+		return
+	}
+
+	// 5 Act: collect replies (posts whose parent is this post)
+	replies := []Reply{}																//[]Reply: list (slice) of Reply structs; {}: start it empty (JSON shows [] not null)
+	for _, existingPost := range store.posts {											// *: "value at the pointer", turns ParentID (*int) into its int; check != nil first, as reading a nil pointer crashes
+		if existingPost.ParentID != nil && *existingPost.ParentID == postID {
+			replies = append(replies, Reply{
+				PostReplyID: existingPost.ID,
+				Timestamp:   existingPost.Timestamp,
+			})
+		}
+	}
+
+	// 6 Respond with post and its replies (200)
+	writeJSON(writer, http.StatusOK, PostResponse{
+		Post:    *matchedPost,
+		Replies: replies,
+	})
+
+	
 }
 
 // DELETE /post/{id}/delete/{key}
@@ -301,6 +334,30 @@ func getUserMetadata(writer http.ResponseWriter, request *http.Request) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	//4 Act: identifier provided can be ID or screenname; pull based on either when checked against each user
+	var matchedUser *User											// *: pointer, matches map values (*User); starts nil = "not found" (Python: None)
+	for _, existingUser := range store.users {
+		if strconv.Itoa(existingUser.ID) == identifier || existingUser.ScreenName == identifier {
+			matchedUser = existingUser
+			break
+		}
+	}
+w
+	// Check: Write error if no user found; Write error if keys do not match
+
+	if matchedUser == nil {
+		writerError(writer, http.StatusNotFound, "User not found.")
+		return
+	}
+
+	if matchedUser.Key != editRequest.UserKey {
+		writeError(writer, http.StatusForbidden, "Forbidden.")
+		return
+	}
+
+	// 5 Respond with user (200)
+	writeJSON(writer, http.StatusOK, matchedUser)
+
 }
 
 // PUT /user/{identifier}/edit
@@ -321,6 +378,39 @@ func editUserMetadata(writer http.ResponseWriter, request *http.Request) {
 	// 3 Lock before touching shared data (Python: with lock:)
 	store.mu.Lock()
 	defer store.mu.Unlock()
+
+	//4 Act: identifier provided can be ID or screenname; pull based on either when checked against each user
+	var matchedUser *User											// *: pointer, matches map values (*User); starts nil = "not found" (Python: None)
+	for _, existingUser := range store.users {
+		if strconv.Itoa(existingUser.ID) == identifier || existingUser.ScreenName == identifier {
+			matchedUser = existingUser
+			break
+		}
+	}
+
+	// 5 Check: Write error if no user found.
+	if matchedUser == nil {
+		writeError(writer, http.StatusNotFound, "User not found.")
+		return
+	}
+
+	if editRequest.UserKey != matchedUser.Key {
+		writeError(writer, http.StatusForbidden, "Forbidden: provided user key does not match pulled user.")
+		return
+	}
+
+	// 6 Act: Update only the fields provided
+
+	if editRequest.RealName != ""{
+		matchedUser.RealName = editRequest.RealName
+	}
+
+	if editRequest.ScreenName != ""{
+		matchedUser.ScreenName = editRequest.ScreenName
+	}
+
+	// 7 Respond with updated user (200)
+	writeJSON(writer, http.StatusOK, matchedUser)
 
 }
 
