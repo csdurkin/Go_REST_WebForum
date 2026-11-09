@@ -472,6 +472,19 @@ func searchDatetime(writer http.ResponseWriter, request *http.Request) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
+	// 4 Act: collect posts within the time range (a missing start or end means no limit on that side)
+	postsInRange := []*Post{}
+	for _, existingPost := range store.posts {
+		afterStart := startText == "" || !existingPost.Timestamp.Before(startTime)						//boolean checks
+		beforeEnd := endText == "" || !existingPost.Timestamp.After(endTime)							// .Before() / .After(): time.Time methods; using ! to flip direction of this check
+		if afterStart && beforeEnd {
+			postsInRange = append(postsInRange, existingPost)
+		}
+	}
+
+	// 5 Respond with posts in range (200)
+	writeJSON(writer, http.StatusOK, postsInRange)
+
 }
 
 // GET /posts/search/user (expample: /posts/search/user?user_id=1)
@@ -510,8 +523,6 @@ func searchUserPosts(writer http.ResponseWriter, request *http.Request) {
 	writeJSON(writer, http.StatusOK, userPosts)
 }
 
-}
-
 // 6 MAIN: ROUTES AND SERVER START ----------------------------------------------
 
 func main() {
@@ -543,4 +554,38 @@ func main() {
 - strconv.Atoi: version of int(); more written out conversions in GO 
 - Replies whena deleting post from store: Replies are left as they are (matches Python): their post_parentid points to a missing post, which is harmless; GET on the parent returns 404
 
+SYNTAX TO REMEMBER:
+- := creates a variable; = changes one that already exists
+- & gives the address (a pointer), not a copy
+- * in a type means "pointer to"; before a variable it means "value at the pointer"
+- _ throws away a value I don't need; Go won't allow unused variables
+- {} creates a value, empty or filled; also wraps code blocks
+- [] is a slice: a list that holds one type only
+- map[K]V: key type, then value type
+- any: accepts any type; use sparingly
+- make: creates a slice or map at a set size
+- func name(inputs) (outputs): the second brackets are what it returns
+- Struct tags go in backticks: `json:"x"`
+- == compares, = assigns. Don't mix them up
+- Put nil checks first with &&: it stops early, so the pointer is never read when nil
+- defer runs when the function exits, however it exits
+
+TO REVIEW:
+- Pointers and nil
+- Scope: loops need var declared first; one-line lookups don't
+- Where input comes from: JSON body, PathValue, or URL.Query().Get
+- Returns: bare return in handlers; return with values only if the signature says so
+
+GO VS PYTHON:
+- Go is static and compiled; Python is dynamic and interpreted
+- Go needs data shapes declared as structs; Python's dicts were implicit
+- Go returns errors as values; Python raises exceptions
+- Go copies structs unless I use pointers; Python shares references by default
+- Go uses zero values ("", 0, nil); Python uses None or raises KeyError
+- Go runs requests in parallel; Python is limited by the GIL
+- Go crashes on unlocked map writes; Python carries on silently
+- Go needed only the standard library; Python needed Flask
+- Keeping the JSON identical let the same Postman tests check both versions
+- The port fixed four Python bugs: delete key check, replies saved into posts, reused IDs, unlocked date search
 */
+
